@@ -3,3 +3,4 @@ _deps
 build
 CMakeLists.txts
 src/test.cpp
+assets
