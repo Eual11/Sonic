@@ -75,10 +75,8 @@ Sonic::SonicAudioPlayer::SonicAudioPlayer()
   spec.freq = freq;
   spec.channels = channels;
   spec.format = format;
-  /* if(Mix_OpenAudio(0 ) */
 
   if (Mix_OpenAudio(0, &spec) < 0) {
-    // do something
     //
     std::cerr << "Couldn't Open Audio device\n";
     std::cerr << Mix_GetError() << std::endl;
@@ -146,4 +144,29 @@ void Sonic::SonicAudioPlayer::TogglePlay(const SonicAudio &audio) {
     Mix_PlayMusic(Current_Music, NUM_LOOPS);
   }
   Current_SonicAudio = audio;
+}
+
+void Sonic::SonicAudioPlayer::setVolume(int vol) {
+  vol = vol > (1 << 7) ? (1 << 7) : vol;
+  vol = vol < 0 ? 0 : vol;
+  VOLUME = vol;
+  Mix_VolumeMusic(VOLUME);
+}
+int Sonic::SonicAudioPlayer::getVolume() { return VOLUME; }
+double Sonic::SonicAudioPlayer::getCurrentAudioDuration() {
+  return Mix_GetMusicPosition(Current_Music);
+}
+bool Sonic::SonicAudioPlayer::isAudioPlaying() { return Mix_PlayingMusic(); }
+
+void Sonic::SonicAudioPlayer::seekCurrentAudio(double duration) {
+
+  if (!Current_Music)
+    return;
+  duration = duration < 0 ? 0 : duration;
+  if (duration >= Current_SonicAudio.duration) {
+    Mix_HaltMusic();
+    Mix_FreeMusic(Current_Music);
+    Current_Music = nullptr;
+  } else
+    Mix_SetMusicPosition(duration);
 }
