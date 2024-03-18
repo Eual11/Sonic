@@ -41,7 +41,6 @@ class SonicAudioPlayer {
 public:
   SonicAudioPlayer();
   SonicAudioPlayer(int, int, SDL_AudioFormat);
-  /* SonicAudioPlayer(Mix_Music *); */
   ~SonicAudioPlayer(void);
   // getter and setter methods for player audio
   int getVolume(void);
@@ -51,18 +50,26 @@ public:
   // duration and seeking operations
   double getCurrentAudioDuration();
   void seekCurrentAudio(double);
-  void forwardCurrentAudio(double);
-  void backwardCurrentAudio(double);
+  inline void forwardCurrentAudio(double amount = 5.0f) {
+    Sonic::SonicAudioPlayer::seekCurrentAudio(
+        Mix_GetMusicPosition(Current_Music) + amount);
+  };
+  inline void backwardCurrentAudio(double amount = 5.0f) {
+    Sonic::SonicAudioPlayer::seekCurrentAudio(
+        Mix_GetMusicPosition(Current_Music) - amount);
+  }
 
   // repeating
-  void toggleRepeat();
+  inline void toggleRepeat();
   void TogglePlay(const Sonic::SonicAudio &);
-  void rewindCurrentAudio();
-  void pauseCurrentAudio();
+  inline void rewindCurrentAudio() {
+    backwardCurrentAudio(Current_SonicAudio.duration);
+  }
   void ResumeCurrentAudio();
+  bool isAudioPlaying();
+  int VOLUME;
 
 private:
-  int VOLUME;
   Mix_Music *Current_Music;
   SonicAudio Current_SonicAudio;
   int NUM_LOOPS = 0;
