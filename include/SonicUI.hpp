@@ -8,6 +8,7 @@
 #include <ftxui/component/component_options.hpp>
 #include <ftxui/component/event.hpp>
 #include <ftxui/dom/node.hpp>
+#include <functional>
 #include <mutex>
 #include <set>
 #include <string>
@@ -22,6 +23,7 @@ enum class TrackSelection {
 
   ARTIST,
   ALBUM,
+  ALL_TRACKS,
   PLAYLIST
 };
 
@@ -57,6 +59,7 @@ private:
   std::vector<Sonic::SonicAudio> AudioQueue;
   void Load_Libraries(std::filesystem::path);
   void AudioQueueHandler(void);
+  std::function<void()> quit;
 
   std::thread AudioHandlerThread;
   void UpdataLeftPanelSelection(void);
@@ -64,7 +67,8 @@ private:
   void UpdateLeftPanelView(void);
   void UpdateAllSelection(void);
   void UpdateMainWindowView(void);
-
+  void NextTrack(bool);
+  std::string getSelectionHeader();
   ftxui::MenuEntryOption LeftPanelEntryOption;
   ftxui::MenuEntryOption MainWindowEntryOption;
   SonicAudioPlayer AudioPlayer;
@@ -94,6 +98,7 @@ public:
   SonicUI(SonicUIOptions); // constructor might need options
   bool OnEvent(ftxui::Event) override;
   ftxui::Element Render() override;
+  inline void setQuitFunction(std::function<void()> q) { quit = std::move(q); }
 };
 
 } // namespace Sonic
