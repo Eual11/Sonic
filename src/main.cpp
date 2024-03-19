@@ -18,6 +18,7 @@ int main(int argc, char **argv) {
   options.new_path = argv[1];
   auto scr = ftxui::ScreenInteractive::Fullscreen();
   auto sonic = ftxui::Make<Sonic::SonicUI>(options);
+  sonic->setQuitFunction(scr.ExitLoopClosure());
   std::atomic<bool> refresh_ui_continue(true);
   std::thread refresh_ui([&] {
     while (refresh_ui_continue) {
