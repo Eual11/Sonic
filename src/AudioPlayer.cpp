@@ -163,10 +163,11 @@ void Sonic::SonicAudioPlayer::seekCurrentAudio(double duration) {
   if (!Current_Music)
     return;
   duration = duration < 0 ? 0 : duration;
+
   if (duration >= Current_SonicAudio.duration) {
-    Mix_HaltMusic();
-    Mix_FreeMusic(Current_Music);
-    Current_Music = nullptr;
+    /* Mix_HaltMusic(); */
+    /* Mix_FreeMusic(Current_Music); */
+    /* Current_Music = nullptr; */
   } else
     Mix_SetMusicPosition(duration);
 }
