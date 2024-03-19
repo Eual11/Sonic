@@ -11,6 +11,7 @@
 #include <ftxui/dom/node.hpp>
 #include <mutex>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string>
 #include <thread>
 
@@ -136,29 +137,55 @@ bool Sonic::SonicUI::OnEvent(ftxui::Event event) {
     AudioPlayer.rewindCurrentAudio();
     return true;
   }
+  if (event == ftxui::Event::Character('1')) {
+    m_TrackSelector = TrackSelection::ARTIST;
+    UpdateAllSelection();
+    return true;
+  }
 
+  if (event == ftxui::Event::Character('2')) {
+    m_TrackSelector = TrackSelection::ALL_TRACKS;
+    UpdateAllSelection();
+    return true;
+  }
+  if (event == ftxui::Event::Character('3')) {
+    m_TrackSelector = TrackSelection::ALBUM;
+    UpdateAllSelection();
+    return true;
+  }
+
+  // quit
+  //
+  if (event == ftxui::Event::Character('q')) {
+    refresh_audio_queue = false;
+    AudioHandlerThread.join();
+    quit();
+    /* exit(0); */
+  }
   return ftxui::ComponentBase::OnEvent(event);
 }
 
 ftxui::Element Sonic::SonicUI::Render() {
 
-  auto bgcolor = ftxui::bgcolor(hexToRGB("#002b36"));
+  /* auto bgcolor = ftxui::bgcolor(hexToRGB("#002b36")); */
+  auto bgcolor = ftxui::bgcolor(hexToRGB("#1c1c1c"));
   auto color = ftxui::color(hexToRGB("#637c76"));
   auto guagecolor = ftxui::color(hexToRGB("#2a84c0"));
   auto nextplaycolor = ftxui::color(hexToRGB("#6676c6"));
   auto volumecolor = ftxui::color(hexToRGB("#85720c"));
   auto curplayingcolor = ftxui::color(hexToRGB("#da4282"));
-  auto LeftPanelView = ftxui::vbox({ftxui::text("Artists") | ftxui::center,
-                                    ftxui::text(" "), LeftPanel->Render()});
+  auto LeftPanelView =
+      ftxui::vbox({ftxui::text(getSelectionHeader()) | ftxui::center,
+                   ftxui::text(" "), LeftPanel->Render()});
   auto MainWindowView = ftxui::vbox({ftxui::text("Tracks") | ftxui::center,
                                      ftxui::text(" "), MainWindow->Render()});
   ftxui::Element mainView =
-      ftxui::hbox({LeftPanelView | ftxui::frame | ftxui::borderLight |
+      ftxui::hbox({LeftPanelView | ftxui::yframe | ftxui::borderLight |
                        ftxui::size(ftxui::WIDTH, ftxui::EQUAL, 30),
                    MainWindowView | ftxui::yframe | ftxui::vscroll_indicator |
                        ftxui::flex | ftxui::borderLight});
 
-  auto volumeSlider = ftxui::Slider("Vol ", &AudioPlayer.VOLUME, 0, 100, 5);
+  auto volumeSlider = ftxui::Slider(" ", &AudioPlayer.VOLUME, 0, 100, 5);
   volumeSlider |=
       ftxui::Renderer([&](ftxui::Element e) { return e | volumecolor; });
 
@@ -185,10 +212,9 @@ ftxui::Element Sonic::SonicUI::Render() {
 
   std::string audio_duration;
   audio_duration = buffer;
-  auto playbackGauge = ftxui::Slider(cur_duration, &duration, 0.0f,
-                                     (float)m_CurrentTrack.audio.duration, 1);
-  playbackGauge |=
-      ftxui::Renderer([&](ftxui::Element e) { return e | guagecolor; });
+  float progress = (float)AudioPlayer.getCurrentAudioDuration() /
+                   (float)(m_CurrentTrack.audio.duration);
+  auto playbackGauge = ftxui::gauge(progress);
   auto slider_width = ftxui::size(ftxui::WIDTH, ftxui::EQUAL, 15);
   auto statusline_view =
       ftxui::vbox(
@@ -202,8 +228,8 @@ ftxui::Element Sonic::SonicUI::Render() {
                 ftxui::text(
                     std::to_string((int)((AudioPlayer.VOLUME / 128.0f) * 100)) +
                     "%"),
-                ftxui::text("   "),
-                playbackGauge->Render() | guagecolor | ftxui::flex,
+                ftxui::text("  " + cur_duration + " "),
+                playbackGauge | guagecolor | ftxui::flex,
                 ftxui::text(audio_duration),
                 ftxui::text("  Loop|Shuffle  ") | volumecolor})}) |
       ftxui::size(ftxui::HEIGHT, ftxui::EQUAL, 3) | ftxui::borderLight;
@@ -235,29 +261,33 @@ void Sonic::SonicUI::Load_Libraries(std::filesystem::path new_path) {
 void Sonic::SonicUI::UpdataLeftPanelSelection(void) {
   std::unique_lock<std::mutex> lock(mtx);
   LeftPanelSelection.clear();
-  for (auto track : TracksList) {
-    switch (m_TrackSelector) {
-    case TrackSelection::ARTIST: {
-      if (std::find(LeftPanelSelection.begin(), LeftPanelSelection.end(),
-                    track.artist) == LeftPanelSelection.end())
-        LeftPanelSelection.push_back(track.artist);
 
-      break;
-    }
-    case TrackSelection::ALBUM: {
-      /* std::cerr << "Supported ALBUM\n"; */
-      if (std::find(LeftPanelSelection.begin(), LeftPanelSelection.end(),
-                    track.album) == LeftPanelSelection.end())
-        LeftPanelSelection.push_back(track.album);
+  if (m_TrackSelector != TrackSelection::ALL_TRACKS) {
+    for (auto track : TracksList) {
+      switch (m_TrackSelector) {
+      case TrackSelection::ARTIST: {
+        if (std::find(LeftPanelSelection.begin(), LeftPanelSelection.end(),
+                      track.artist) == LeftPanelSelection.end())
+          LeftPanelSelection.push_back(track.artist);
 
-      //        LeftPanelSelection.push_back(track.album);
-      break;
+        break;
+      }
+      case TrackSelection::ALBUM: {
+        /* std::cerr << "Supported ALBUM\n"; */
+        if (std::find(LeftPanelSelection.begin(), LeftPanelSelection.end(),
+                      track.album) == LeftPanelSelection.end())
+          LeftPanelSelection.push_back(track.album);
+
+        break;
+      }
+      case TrackSelection::PLAYLIST: {
+        // unimplmented
+        break;
+      }
+      }
     }
-    case TrackSelection::PLAYLIST: {
-      // unimplmented
-      break;
-    }
-    }
+  } else {
+    LeftPanelSelection.push_back("All Tracks");
   }
   lock.unlock();
   UpdateLeftPanelView();
@@ -288,6 +318,9 @@ void Sonic::SonicUI::UpdateAudioQueue(int index) {
       // unimplmented
       break;
     }
+    case TrackSelection::ALL_TRACKS: {
+      AudioQueue.push_back(track);
+    }
     }
   }
 
@@ -300,7 +333,13 @@ void Sonic::SonicUI::UpdateLeftPanelView(void) {
   LeftPanel->DetachAllChildren();
 
   for (auto &selection : LeftPanelSelection) {
-    LeftPanel->Add(ftxui::MenuEntry(selection, LeftPanelEntryOption));
+    auto entry = ftxui::MenuEntry(selection, LeftPanelEntryOption);
+    entry |= ftxui::Renderer([&](ftxui::Element e) {
+      return ftxui::hbox(
+          ftxui::text(" 󰲸 ") | ftxui::color(hexToRGB("#008dd4")), e);
+    });
+
+    LeftPanel->Add(entry);
   }
 }
 
@@ -310,7 +349,12 @@ void Sonic::SonicUI::UpdateMainWindowView(void) {
   MainWindow->DetachAllChildren();
 
   for (auto &track : AudioQueue) {
-    MainWindow->Add(ftxui::MenuEntry(track.title, MainWindowEntryOption));
+    auto entry = ftxui::MenuEntry(track.title, MainWindowEntryOption);
+    entry |= ftxui::Renderer([&](ftxui::Element e) {
+      return ftxui::hbox(
+          ftxui::text("  ") | ftxui::color(hexToRGB("#009f98")), e);
+    });
+    MainWindow->Add(entry);
   }
 }
 void Sonic::SonicUI::UpdateAllSelection(void) {
@@ -331,30 +375,48 @@ void Sonic::SonicUI::AudioQueueHandler(void) {
 
     } else {
       // play next on the queue;
-      //
-      m_PrevTrack = m_CurrentTrack;
-      // i don't even know if this good or not
       lock.unlock();
-      UpdateAudioQueue(m_NextTrack.albumIndex);
-      lock.lock();
-      LeftPanel->SetActiveChild(LeftPanel->ChildAt(m_NextTrack.albumIndex));
-
-      m_NextTrack.audio = AudioQueue[m_NextTrack.queueindex];
-      m_CurrentTrack = m_NextTrack;
-      AudioPlayer.TogglePlay(m_CurrentTrack.audio);
-
-      // load next track
-      int nextAudioTrackIndex = m_MainWindowSelected + 1;
-      int nextTrackSelectionIndex = m_LeftPanelSelected;
-      if (nextAudioTrackIndex >= (int)AudioQueue.size()) {
-        nextAudioTrackIndex = 0;
-        nextTrackSelectionIndex += 1;
-      }
-      if (nextTrackSelectionIndex >= (int)LeftPanelSelection.size())
-        nextTrackSelectionIndex = 0;
-
-      m_NextTrack.albumIndex = nextTrackSelectionIndex;
-      m_NextTrack.queueindex = nextAudioTrackIndex;
+      NextTrack(false);
     }
+  }
+}
+void Sonic::SonicUI::NextTrack(bool shuffle) {
+  std::lock_guard<std::mutex> lock(mtx);
+  if (!shuffle) {
+
+    // i don't even know if this good or not
+
+    m_PrevTrack = m_CurrentTrack;
+
+    m_CurrentTrack = m_NextTrack;
+    AudioPlayer.TogglePlay(m_CurrentTrack.audio);
+
+    // load next track
+    int nextAudioTrackIndex = m_CurrentTrack.queueindex + 1;
+
+    if (nextAudioTrackIndex >= (int)AudioQueue.size()) {
+      nextAudioTrackIndex = 0;
+    }
+    m_NextTrack.queueindex = nextAudioTrackIndex;
+    m_NextTrack.audio = AudioQueue[m_NextTrack.queueindex];
+  }
+}
+std::string Sonic::SonicUI::getSelectionHeader() {
+
+  switch (m_TrackSelector) {
+
+  case TrackSelection::ARTIST: {
+    return "Artists";
+    break;
+  }
+  case TrackSelection::ALL_TRACKS: {
+    return "All Tracks";
+  }
+  case TrackSelection::ALBUM: {
+    return "Albums";
+  }
+  case TrackSelection::PLAYLIST: {
+    return "Playlists";
+  }
   }
 }
