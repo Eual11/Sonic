@@ -43,9 +43,9 @@ Sonic::SonicUI::SonicUI(Sonic::SonicUIOptions options) {
   refresh_audio_queue = true;
   /* AudioHandlerThread.swap(swapthread); */
 
+  Add(sonicui);
   refresh_audio_queue = true;
   AudioHandlerThread = std::thread(&SonicUI::AudioQueueHandler, this);
-  Add(sonicui);
 }
 
 bool Sonic::SonicUI::OnEvent(ftxui::Event event) {
