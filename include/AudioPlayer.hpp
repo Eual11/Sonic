@@ -72,6 +72,7 @@ public:
 
   void ResumeCurrentAudio();
   bool isAudioPlaying();
+  inline bool isPaused() { return Mix_PausedMusic(); }
   int VOLUME;
   bool m_Shuffle = false;
   bool m_Loop = false;
