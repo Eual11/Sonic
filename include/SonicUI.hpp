@@ -67,7 +67,8 @@ private:
   void UpdateLeftPanelView(void);
   void UpdateAllSelection(void);
   void UpdateMainWindowView(void);
-  void NextTrack(bool);
+  void loadNextTrack(bool);
+  void playNextTrack(void);
   std::string getSelectionHeader();
   ftxui::MenuEntryOption LeftPanelEntryOption;
   ftxui::MenuEntryOption MainWindowEntryOption;
