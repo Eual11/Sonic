@@ -2,6 +2,7 @@
 #define _SONICUI_HPP
 #include "../include/AudioPlayer.hpp"
 #include "../include/Utils.hpp"
+#include <cstdlib>
 #include <filesystem>
 #include <ftxui/component/component.hpp>
 #include <ftxui/component/component_base.hpp>

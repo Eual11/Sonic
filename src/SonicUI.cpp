@@ -91,7 +91,7 @@ bool Sonic::SonicUI::OnEvent(ftxui::Event event) {
       m_StartedPlaying = true;
       AudioPlayer.TogglePlay(m_CurrentTrack.audio);
       lock.unlock();
-      loadNextTrack(false);
+      loadNextTrack(AudioPlayer.m_Shuffle);
     }
     return true;
   }
@@ -130,7 +130,15 @@ bool Sonic::SonicUI::OnEvent(ftxui::Event event) {
     m_CurrentTrack = m_PrevTrack;
     AudioPlayer.TogglePlay(m_CurrentTrack.audio);
     mtx.unlock();
-    loadNextTrack(false);
+    loadNextTrack(AudioPlayer.m_Shuffle);
+    return true;
+  }
+  if (event == ftxui::Event::Character('l')) {
+    AudioPlayer.m_Loop = !AudioPlayer.m_Loop;
+    return true;
+  }
+  if (event == ftxui::Event::Character('s')) {
+    AudioPlayer.m_Shuffle = !AudioPlayer.m_Shuffle;
     return true;
   }
   if (event == ftxui::Event::Character('r')) {
@@ -385,18 +393,24 @@ void Sonic::SonicUI::AudioQueueHandler(void) {
 }
 void Sonic::SonicUI::loadNextTrack(bool shuffle) {
   std::lock_guard<std::mutex> lock(mtx);
-  if (!shuffle) {
-    // i don't even know if this good or not
+  // i don't even know if this good or not
+  int nextAudioTrackIndex;
+  // load next track
+  if (!shuffle)
+    nextAudioTrackIndex = m_CurrentTrack.queueindex + 1;
+  else {
 
-    // load next track
-    int nextAudioTrackIndex = m_CurrentTrack.queueindex + 1;
-
-    if (nextAudioTrackIndex >= (int)AudioQueue.size()) {
-      nextAudioTrackIndex = 0;
-    }
-    m_NextTrack.queueindex = nextAudioTrackIndex;
-    m_NextTrack.audio = AudioQueue[m_NextTrack.queueindex];
+    // bad shuffle
+    nextAudioTrackIndex = m_CurrentTrack.queueindex;
+    srand(m_CurrentTrack.audio.duration);
+    while (nextAudioTrackIndex == m_CurrentTrack.queueindex)
+      nextAudioTrackIndex = rand() % AudioQueue.size();
   }
+  if (nextAudioTrackIndex >= (int)AudioQueue.size()) {
+    nextAudioTrackIndex = 0;
+  }
+  m_NextTrack.queueindex = nextAudioTrackIndex;
+  m_NextTrack.audio = AudioQueue[m_NextTrack.queueindex];
 }
 std::string Sonic::SonicUI::getSelectionHeader() {
 
@@ -419,9 +433,12 @@ std::string Sonic::SonicUI::getSelectionHeader() {
 }
 void Sonic::SonicUI::playNextTrack(void) {
   std::unique_lock<std::mutex> lock(mtx);
-  m_PrevTrack = m_CurrentTrack;
-  m_CurrentTrack = m_NextTrack;
+  if (!AudioPlayer.m_Loop) {
+    m_PrevTrack = m_CurrentTrack;
+    m_CurrentTrack = m_NextTrack;
+  }
+
   AudioPlayer.TogglePlay(m_CurrentTrack.audio);
   lock.unlock();
-  loadNextTrack(false);
+  loadNextTrack(AudioPlayer.m_Shuffle);
 }
