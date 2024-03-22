@@ -142,7 +142,7 @@ bool Sonic::SonicUI::OnEvent(ftxui::Event event) {
   if (event == ftxui::Event::Character('s')) {
     mtx.lock();
     AudioPlayer.m_Shuffle = !AudioPlayer.m_Shuffle;
-    mtx.lock();
+    mtx.unlock();
     return true;
   }
   if (event == ftxui::Event::Character('r')) {
@@ -182,18 +182,26 @@ bool Sonic::SonicUI::OnEvent(ftxui::Event event) {
 ftxui::Element Sonic::SonicUI::Render() {
 
   /* auto bgcolor = ftxui::bgcolor(hexToRGB("#002b36")); */
-  auto bgcolor = ftxui::bgcolor(hexToRGB("#1c1c1c"));
-  auto color = ftxui::color(hexToRGB("#637c76"));
+  auto bgcolor = ftxui::bgcolor(hexToRGB("#19212f"));
+  auto color = ftxui::color(hexToRGB("#8ea2c4"));
   auto loopDecorator = AudioPlayer.m_Loop ? ftxui::bold : ftxui::dim;
   auto shuffleDecorator = AudioPlayer.m_Shuffle ? ftxui::bold : ftxui::dim;
   auto guagecolor = ftxui::color(hexToRGB("#2a84c0"));
-  auto nextplaycolor = ftxui::color(hexToRGB("#6676c6"));
+  auto nextplaycolor = ftxui::color(hexToRGB("#d44bec"));
   auto volumecolor = ftxui::color(hexToRGB("#85720c"));
-  auto curplayingcolor = ftxui::color(hexToRGB("#da4282"));
-  auto LeftPanelView =
-      ftxui::vbox({ftxui::text(getSelectionHeader()) | ftxui::center,
-                   ftxui::text(" "), LeftPanel->Render()});
-  auto MainWindowView = ftxui::vbox({ftxui::text("Tracks") | ftxui::center,
+  auto curplayingcolor = ftxui::color(hexToRGB("#74d046"));
+  auto leftPanelHeader = ftxui::text(getSelectionHeader());
+  auto mainWindowHeader =
+      ftxui::text("Tracks"); // this may be subjected to change
+  if (LeftPanel->Focused())
+    leftPanelHeader |=
+        ftxui::bgcolor(hexToRGB("#56B6C2")) | ftxui::color(hexToRGB("#19212f"));
+  if (MainWindow->Focused())
+    mainWindowHeader |=
+        ftxui::bgcolor(hexToRGB("#56B6C2")) | ftxui::color(hexToRGB("#19212f"));
+  auto LeftPanelView = ftxui::vbox(
+      {leftPanelHeader | ftxui::center, ftxui::text(" "), LeftPanel->Render()});
+  auto MainWindowView = ftxui::vbox({mainWindowHeader | ftxui::center,
                                      ftxui::text(" "), MainWindow->Render()});
   ftxui::Element mainView =
       ftxui::hbox({LeftPanelView | ftxui::yframe | ftxui::borderLight |
@@ -225,7 +233,9 @@ ftxui::Element Sonic::SonicUI::Render() {
   secs = secs < 0 ? 0 : secs;
   buffer[79] = '\0';
   sprintf(buffer, "%02d:%02d", mins, secs);
-
+  std::string playerState = m_StartedPlaying && !AudioPlayer.isPaused()
+                                ? " Playing "
+                                : " Paused ";
   std::string audio_duration;
   audio_duration = buffer;
   float progress = (float)AudioPlayer.getCurrentAudioDuration() /
@@ -235,7 +245,7 @@ ftxui::Element Sonic::SonicUI::Render() {
   auto statusline_view =
       ftxui::vbox(
           {ftxui::hbox(
-               {ftxui::text("Playing "),
+               {ftxui::text(playerState),
                 ftxui::text(m_CurrentTrack.audio.title) | curplayingcolor,
                 ftxui::text("   Next "),
                 ftxui::text(m_NextTrack.audio.title) | nextplaycolor}),
@@ -247,9 +257,11 @@ ftxui::Element Sonic::SonicUI::Render() {
                 ftxui::text("  " + cur_duration + " "),
                 playbackGauge | guagecolor | ftxui::flex,
                 ftxui::text(audio_duration),
-                ftxui::text("  Loop") | volumecolor | loopDecorator,
+                ftxui::text("  Loop") | ftxui::color(hexToRGB("#ff4761")) |
+                    loopDecorator,
                 ftxui::separator(),
-                ftxui::text("Shuffle") | volumecolor | shuffleDecorator})}) |
+                ftxui::text("Shuffle") | ftxui::color(hexToRGB("#f7bc47")) |
+                    shuffleDecorator})}) |
 
       ftxui::size(ftxui::HEIGHT, ftxui::EQUAL, 3) | ftxui::borderLight;
 
@@ -355,7 +367,8 @@ void Sonic::SonicUI::UpdateLeftPanelView(void) {
     auto entry = ftxui::MenuEntry(selection, LeftPanelEntryOption);
     entry |= ftxui::Renderer([&](ftxui::Element e) {
       return ftxui::hbox(
-          ftxui::text(" 󰲸 ") | ftxui::color(hexToRGB("#008dd4")), e);
+                 ftxui::text(" 󰲸 ") | ftxui::color(hexToRGB("#008dd4")), e) |
+             ftxui::bold;
     });
 
     LeftPanel->Add(entry);
