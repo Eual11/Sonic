@@ -134,11 +134,15 @@ bool Sonic::SonicUI::OnEvent(ftxui::Event event) {
     return true;
   }
   if (event == ftxui::Event::Character('l')) {
+    mtx.lock();
     AudioPlayer.m_Loop = !AudioPlayer.m_Loop;
+    mtx.unlock();
     return true;
   }
   if (event == ftxui::Event::Character('s')) {
+    mtx.lock();
     AudioPlayer.m_Shuffle = !AudioPlayer.m_Shuffle;
+    mtx.lock();
     return true;
   }
   if (event == ftxui::Event::Character('r')) {
@@ -180,6 +184,8 @@ ftxui::Element Sonic::SonicUI::Render() {
   /* auto bgcolor = ftxui::bgcolor(hexToRGB("#002b36")); */
   auto bgcolor = ftxui::bgcolor(hexToRGB("#1c1c1c"));
   auto color = ftxui::color(hexToRGB("#637c76"));
+  auto loopDecorator = AudioPlayer.m_Loop ? ftxui::bold : ftxui::dim;
+  auto shuffleDecorator = AudioPlayer.m_Shuffle ? ftxui::bold : ftxui::dim;
   auto guagecolor = ftxui::color(hexToRGB("#2a84c0"));
   auto nextplaycolor = ftxui::color(hexToRGB("#6676c6"));
   auto volumecolor = ftxui::color(hexToRGB("#85720c"));
@@ -241,7 +247,10 @@ ftxui::Element Sonic::SonicUI::Render() {
                 ftxui::text("  " + cur_duration + " "),
                 playbackGauge | guagecolor | ftxui::flex,
                 ftxui::text(audio_duration),
-                ftxui::text("  Loop|Shuffle  ") | volumecolor})}) |
+                ftxui::text("  Loop") | volumecolor | loopDecorator,
+                ftxui::separator(),
+                ftxui::text("Shuffle") | volumecolor | shuffleDecorator})}) |
+
       ftxui::size(ftxui::HEIGHT, ftxui::EQUAL, 3) | ftxui::borderLight;
 
   return ftxui::vbox({mainView | ftxui::flex, statusline_view}) | bgcolor |
