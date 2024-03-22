@@ -79,33 +79,19 @@ bool Sonic::SonicUI::OnEvent(ftxui::Event event) {
   }
   if (event == ftxui::Event::Character('p')) {
     if (MainWindow->Focused()) {
-      std::lock_guard<std::mutex> lock(mtx);
-      m_PrevTrack = m_CurrentTrack;
+      std::unique_lock<std::mutex> lock(mtx);
       // updating current track
       m_CurrentTrack.albumIndex = m_LeftPanelSelected;
       m_CurrentTrack.queueindex = m_MainWindowSelected;
       m_CurrentTrack.audio = AudioQueue[m_MainWindowSelected];
 
       // setting next Track
-      //
 
-      int nextAudioTrackIndex = m_MainWindowSelected + 1;
-      int nextTrackSelectionIndex = m_LeftPanelSelected;
-      if (nextAudioTrackIndex >= (int)AudioQueue.size()) {
-        nextAudioTrackIndex = 0;
-        nextTrackSelectionIndex += 1;
-      }
-      if (nextTrackSelectionIndex >= (int)LeftPanelSelection.size())
-        nextTrackSelectionIndex = 0;
-
-      m_NextTrack.albumIndex = nextTrackSelectionIndex;
-      m_NextTrack.queueindex = nextAudioTrackIndex;
-
-      if (nextTrackSelectionIndex == m_LeftPanelSelected)
-        m_NextTrack.audio = AudioQueue[m_NextTrack.queueindex];
-
+      m_PrevTrack = m_CurrentTrack;
       m_StartedPlaying = true;
       AudioPlayer.TogglePlay(m_CurrentTrack.audio);
+      lock.unlock();
+      loadNextTrack(false);
     }
     return true;
   }
@@ -129,6 +115,22 @@ bool Sonic::SonicUI::OnEvent(ftxui::Event event) {
 
   if (event == ftxui::Event::Character('k')) {
     AudioPlayer.setVolume(AudioPlayer.VOLUME - 5);
+    return true;
+  }
+  if (event == ftxui::Event::Character('n')) {
+    mtx.lock();
+    mtx.unlock();
+    playNextTrack();
+    return true;
+  }
+  if (event == ftxui::Event::Character('b')) {
+    // prev
+
+    mtx.lock();
+    m_CurrentTrack = m_PrevTrack;
+    AudioPlayer.TogglePlay(m_CurrentTrack.audio);
+    mtx.unlock();
+    loadNextTrack(false);
     return true;
   }
   if (event == ftxui::Event::Character('r')) {
@@ -374,22 +376,17 @@ void Sonic::SonicUI::AudioQueueHandler(void) {
       std::this_thread::sleep_for(1s);
 
     } else {
+      m_PrevTrack = m_CurrentTrack;
       // play next on the queue;
       lock.unlock();
-      NextTrack(false);
+      playNextTrack();
     }
   }
 }
-void Sonic::SonicUI::NextTrack(bool shuffle) {
+void Sonic::SonicUI::loadNextTrack(bool shuffle) {
   std::lock_guard<std::mutex> lock(mtx);
   if (!shuffle) {
-
     // i don't even know if this good or not
-
-    m_PrevTrack = m_CurrentTrack;
-
-    m_CurrentTrack = m_NextTrack;
-    AudioPlayer.TogglePlay(m_CurrentTrack.audio);
 
     // load next track
     int nextAudioTrackIndex = m_CurrentTrack.queueindex + 1;
@@ -419,4 +416,12 @@ std::string Sonic::SonicUI::getSelectionHeader() {
     return "Playlists";
   }
   }
+}
+void Sonic::SonicUI::playNextTrack(void) {
+  std::unique_lock<std::mutex> lock(mtx);
+  m_PrevTrack = m_CurrentTrack;
+  m_CurrentTrack = m_NextTrack;
+  AudioPlayer.TogglePlay(m_CurrentTrack.audio);
+  lock.unlock();
+  loadNextTrack(false);
 }
