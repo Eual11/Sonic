@@ -66,10 +66,7 @@ public:
   inline void rewindCurrentAudio() {
     backwardCurrentAudio(Current_SonicAudio.duration);
   }
-  inline void toggleLoop() {
-    NUM_LOOPS = NUM_LOOPS < 0 ? 0 : -1;
-    std::cerr << NUM_LOOPS << std::endl;
-  }
+  inline void toggleLoop() { NUM_LOOPS = NUM_LOOPS < 0 ? 0 : -1; }
 
   void ResumeCurrentAudio();
   bool isAudioPlaying();

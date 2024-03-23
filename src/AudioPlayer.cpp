@@ -19,9 +19,6 @@ Sonic::SonicAudio::SonicAudio(std::filesystem::path path) {
               << std::endl;
   }
   if (!tmpMusic) {
-    /**/
-    /* std::cerr << "Couldn't Load Music " << pathStr.c_str() << " \n"; */
-    /* std::cerr << Mix_GetError() << "\n"; */
     title = "";
     artist = "";
     album = "";

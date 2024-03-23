@@ -10,7 +10,6 @@ int main(int argc, char **argv) {
   std::string new_library = "."; // current working dir;
   if (argc > 2) {
 
-    std::cerr << "ADDED PATH" << std::endl;
     if (strcmp(argv[1], "-a") == 0) {
       // add a new library
 
