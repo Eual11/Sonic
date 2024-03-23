@@ -4,18 +4,25 @@
 #include <ftxui/component/component.hpp>
 #include <ftxui/component/screen_interactive.hpp>
 #include <iostream>
+#include <string.h>
 int main(int argc, char **argv) {
 
-  if (argc < 2) {
-    std::cout << "Usage: " << argv[0] << " [Audio_Dir]\n";
-    return -1;
+  std::string new_library;
+  if (argc > 2) {
+
+    std::cerr << "ADDED PATH" << std::endl;
+    if (strcmp(argv[1], "-a") == 0) {
+      // add a new library
+
+      new_library = argv[2];
+    }
   }
 
   Sonic::SonicUIOptions options;
   options.freq = MIX_DEFAULT_FREQUENCY;
   options.channels = MIX_DEFAULT_CHANNELS;
   options.format = MIX_DEFAULT_FORMAT;
-  options.new_path = argv[1];
+  options.new_path = new_library;
   auto scr = ftxui::ScreenInteractive::Fullscreen();
   auto sonic = ftxui::Make<Sonic::SonicUI>(options);
   sonic->setQuitFunction(scr.ExitLoopClosure());
