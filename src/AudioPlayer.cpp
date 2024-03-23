@@ -1,12 +1,26 @@
 #include "../include/AudioPlayer.hpp"
 #include <SDL3/SDL_mixer.h>
+#include <codecvt>
+#include <exception>
 #include <filesystem>
+#include <string>
 
+std::string convertToSystemEncoding(const std::wstring &wstr) {
+  std::wstring_convert<std::codecvt_utf8_utf16<wchar_t>> converter;
+  return converter.to_bytes(wstr);
+}
 Sonic::SonicAudio::SonicAudio(std::filesystem::path path) {
-  Mix_Music *tmpMusic = Mix_LoadMUS(path.string().c_str());
+  std::string pathStr = convertToSystemEncoding(path.wstring());
+  Mix_Music *tmpMusic = nullptr;
+  try {
+    tmpMusic = Mix_LoadMUS(pathStr.c_str());
+  } catch (std::exception &e) {
+    std::cerr << "exception occured " << e.what() << " the path is " << path
+              << std::endl;
+  }
   if (!tmpMusic) {
 
-    std::cerr << "Couldn't Load Music\n";
+    std::cerr << "Couldn't Load Music " << pathStr.c_str() << " \n";
     std::cerr << Mix_GetError() << "\n";
     title = "";
     artist = "";
@@ -18,7 +32,7 @@ Sonic::SonicAudio::SonicAudio(std::filesystem::path path) {
     title = Mix_GetMusicTitle(tmpMusic);
     artist = Mix_GetMusicArtistTag(tmpMusic);
     album = Mix_GetMusicAlbumTag(tmpMusic);
-    this->path = path.string();
+    this->path = pathStr;
     duration = Mix_MusicDuration(tmpMusic);
     if (title.length() == 0)
       title = path.filename().string();

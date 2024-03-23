@@ -4,11 +4,14 @@
 #include <algorithm>
 #include <atomic>
 #include <filesystem>
+#include <fstream>
 #include <ftxui/component/component.hpp>
 #include <ftxui/component/component_base.hpp>
 #include <ftxui/component/event.hpp>
 #include <ftxui/dom/elements.hpp>
 #include <ftxui/dom/node.hpp>
+#include <ios>
+#include <iostream>
 #include <mutex>
 #include <stdio.h>
 #include <stdlib.h>
@@ -28,9 +31,8 @@ Sonic::SonicUI::SonicUI(Sonic::SonicUIOptions options) {
 
   fs::path audio_dir(options.new_path);
   if (!fs::exists(audio_dir) || !fs::is_directory(audio_dir)) {
-    std::cout << "Path: " << audio_dir
-              << "doesn't exist or it's not a valid dir\n";
-    exit(1);
+    std::cout << "Path: " << audio_dir.string()
+              << " doesn't exist or it's not a valid dir\n";
   }
 
   SonicAudioPlayer AudioPlayer(options.freq, options.channels, options.format);
@@ -276,21 +278,50 @@ void Sonic::SonicUI::Load_Libraries(std::filesystem::path new_path) {
 
   // load audio trachs from libraries
 
-  /* std::lock_guard<std::mutex> lock(mtx); */
-  for (auto dir_file : std::filesystem::directory_iterator(new_path)) {
-    if (dir_file.is_regular_file() &&
-        AudioPlayer.isSupported(dir_file.path().extension().string())) {
+  std::fstream libraries_file("libraries.txt", std::ios::in | std::ios::app);
+  if (!libraries_file.is_open() || libraries_file.fail())
+    exit(1);
 
-      Sonic::SonicAudio audio(fs::absolute(dir_file.path()));
-      // if the audio file is a valid playable music file
+  libraries_file.seekp(std::ios::end);
+  libraries_file << (fs::absolute(new_path).string() + "\n");
 
-      // TODO: needs optimization
-      if (audio.path != "") {
-        TracksList.push_back(audio);
+  libraries_file.seekg(std::ios::beg);
+  std::string path;
+  std::set<fs::path> library_paths;
+
+  while (std::getline(libraries_file, path)) {
+    fs::path tmpPath(path);
+    if (fs::exists(tmpPath)) {
+      library_paths.insert(tmpPath);
+    }
+  }
+
+  for (auto &library : library_paths) {
+    for (auto dir_file : std::filesystem::directory_iterator(library)) {
+      if (dir_file.is_regular_file() &&
+          AudioPlayer.isSupported(dir_file.path().extension().string())) {
+
+        Sonic::SonicAudio audio(fs::absolute(dir_file.path()));
+        // if the audio file is a valid playable music file
+
+        // TODO: needs optimization
+        if (audio.path != "") {
+          TracksList.push_back(audio);
+        }
       }
     }
   }
   UpdateAllSelection();
+  std::ofstream outfile("tmpLibrary.txt");
+  if (!outfile.is_open())
+    exit(1);
+  for (auto &path : library_paths) {
+    outfile << fs::absolute(path).string() + "\n";
+  }
+  libraries_file.close();
+  outfile.close();
+  if (std::remove("libraries.txt") == 0)
+    std::rename("tmpLibrary.txt", "libraries.txt");
 }
 void Sonic::SonicUI::UpdataLeftPanelSelection(void) {
   std::unique_lock<std::mutex> lock(mtx);
@@ -307,7 +338,6 @@ void Sonic::SonicUI::UpdataLeftPanelSelection(void) {
         break;
       }
       case TrackSelection::ALBUM: {
-        /* std::cerr << "Supported ALBUM\n"; */
         if (std::find(LeftPanelSelection.begin(), LeftPanelSelection.end(),
                       track.album) == LeftPanelSelection.end())
           LeftPanelSelection.push_back(track.album);

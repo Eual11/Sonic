@@ -34,7 +34,7 @@ struct SonicUIOptions {
   int freq;
   int channels;
   SDL_AudioFormat format;
-  std::string new_path;
+  std::string new_path = "";
 };
 class SonicUI : public ftxui::ComponentBase {
 
