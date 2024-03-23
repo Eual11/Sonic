@@ -17,6 +17,7 @@
 #include <stdlib.h>
 #include <string>
 #include <thread>
+#include <winuser.h>
 
 namespace fs = std::filesystem;
 

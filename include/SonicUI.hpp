@@ -2,6 +2,10 @@
 #define _SONICUI_HPP
 #include "../include/AudioPlayer.hpp"
 #include "../include/Utils.hpp"
+#ifdef _WIN32
+#include <Windows.h>
+#endif
+
 #include <cstdlib>
 #include <filesystem>
 #include <ftxui/component/component.hpp>
@@ -70,6 +74,10 @@ private:
   void UpdateMainWindowView(void);
   void loadNextTrack(bool);
   void playNextTrack(void);
+#ifdef _WIN32
+  void registerHotKeys(void);
+  void handleHotKeys(ftxui::Event &);
+#endif
   std::string getSelectionHeader();
   ftxui::MenuEntryOption LeftPanelEntryOption;
   ftxui::MenuEntryOption MainWindowEntryOption;
