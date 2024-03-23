@@ -29,14 +29,12 @@ Sonic::SonicUI::SonicUI(Sonic::SonicUIOptions options) {
   ftxui::Component sonicui =
       ftxui::Container::Vertical({left_main, StatusLine});
 
-  fs::path audio_dir(options.new_path);
-  if (!fs::exists(audio_dir) || !fs::is_directory(audio_dir)) {
-    std::cout << "Path: " << audio_dir.string()
-              << " doesn't exist or it's not a valid dir\n";
-  }
-
   SonicAudioPlayer AudioPlayer(options.freq, options.channels, options.format);
-  Load_Libraries(audio_dir);
+  fs::path audio_dir(options.new_path);
+  if (fs::exists(audio_dir) && fs::is_directory(audio_dir)) {
+    Load_Libraries(audio_dir);
+  }
+  UpdateAllSelection();
   m_CurrentTrack.albumIndex = 0; // setting the dummy track
                                  //
   m_CurrentTrack.queueindex = 0;
@@ -59,102 +57,109 @@ bool Sonic::SonicUI::OnEvent(ftxui::Event event) {
   // q: quit
   //
   /* std::lock_guard<std::mutex> lock(mtx); // locking */
-  if (LeftPanel->Focused() && event == ftxui::Event::ArrowDown) {
-    UpdateAudioQueue((m_LeftPanelSelected + 1) % LeftPanelSelection.size());
-  } else if (LeftPanel->Focused() && event == ftxui::Event::ArrowUp) {
-    UpdateAudioQueue((m_LeftPanelSelected - 1));
-  }
+
+  // trapping left arrow and right arrow events
   if (event == ftxui::Event::ArrowLeft) {
     return true;
   }
   if (event == ftxui::Event::ArrowRight) {
     return true;
   }
-  if (event == ftxui::Event::Tab) {
-    if (LeftPanel->Focused()) {
 
-      MainWindow->TakeFocus();
-    } else if (MainWindow->Focused()) {
-      LeftPanel->TakeFocus();
+  if (AudioQueue.size() > 0) {
+    if (LeftPanel->Focused() && event == ftxui::Event::ArrowDown) {
+      UpdateAudioQueue((m_LeftPanelSelected + 1) % LeftPanelSelection.size());
+    } else if (LeftPanel->Focused() && event == ftxui::Event::ArrowUp) {
+      UpdateAudioQueue((m_LeftPanelSelected - 1));
     }
-    return true;
-  }
-  if (event == ftxui::Event::Character('p')) {
-    if (MainWindow->Focused()) {
-      std::unique_lock<std::mutex> lock(mtx);
-      // updating current track
-      m_CurrentTrack.albumIndex = m_LeftPanelSelected;
-      m_CurrentTrack.queueindex = m_MainWindowSelected;
-      m_CurrentTrack.audio = AudioQueue[m_MainWindowSelected];
 
-      // setting next Track
+    if (event == ftxui::Event::Tab) {
+      if (LeftPanel->Focused()) {
 
-      m_PrevTrack = m_CurrentTrack;
-      m_StartedPlaying = true;
+        MainWindow->TakeFocus();
+      } else if (MainWindow->Focused()) {
+        LeftPanel->TakeFocus();
+      }
+      return true;
+    }
+    if (event == ftxui::Event::Character('p')) {
+      if (MainWindow->Focused()) {
+        std::unique_lock<std::mutex> lock(mtx);
+        // updating current track
+        m_CurrentTrack.albumIndex = m_LeftPanelSelected;
+        m_CurrentTrack.queueindex = m_MainWindowSelected;
+        m_CurrentTrack.audio = AudioQueue[m_MainWindowSelected];
+
+        // setting next Track
+
+        m_PrevTrack = m_CurrentTrack;
+        m_StartedPlaying = true;
+        AudioPlayer.TogglePlay(m_CurrentTrack.audio);
+        lock.unlock();
+        loadNextTrack(AudioPlayer.m_Shuffle);
+      }
+      return true;
+    }
+
+    if (event == ftxui::Event::Character("[")) {
+      // seek backwards
+      std::lock_guard<std::mutex> lock(mtx);
+      AudioPlayer.backwardCurrentAudio();
+    }
+    if (event == ftxui::Event::Character("]")) {
+      std::lock_guard<std::mutex> lock(mtx);
+      AudioPlayer.forwardCurrentAudio();
+    }
+    if (event == ftxui::Event::Character('i')) {
+      AudioPlayer.setVolume(AudioPlayer.VOLUME + 5);
+      return true;
+    }
+    if (event == ftxui::Event::Character(" ")) {
       AudioPlayer.TogglePlay(m_CurrentTrack.audio);
-      lock.unlock();
+    }
+
+    if (event == ftxui::Event::Character('k')) {
+      AudioPlayer.setVolume(AudioPlayer.VOLUME - 5);
+      return true;
+    }
+    if (event == ftxui::Event::Character('n')) {
+      // i hate this, terrible hack to allow moving to next song while loop is
+      // on
+      if (AudioPlayer.m_Loop) {
+        m_PrevTrack = m_CurrentTrack;
+        m_CurrentTrack = m_NextTrack;
+      }
+      playNextTrack();
+      return true;
+    }
+    if (event == ftxui::Event::Character('b')) {
+      // prev
+
+      mtx.lock();
+      m_CurrentTrack = m_PrevTrack;
+      AudioPlayer.TogglePlay(m_CurrentTrack.audio);
+      mtx.unlock();
       loadNextTrack(AudioPlayer.m_Shuffle);
+      return true;
     }
-    return true;
-  }
-
-  if (event == ftxui::Event::Character("[")) {
-    // seek backwards
-    std::lock_guard<std::mutex> lock(mtx);
-    AudioPlayer.backwardCurrentAudio();
-  }
-  if (event == ftxui::Event::Character("]")) {
-    std::lock_guard<std::mutex> lock(mtx);
-    AudioPlayer.forwardCurrentAudio();
-  }
-  if (event == ftxui::Event::Character('i')) {
-    AudioPlayer.setVolume(AudioPlayer.VOLUME + 5);
-    return true;
-  }
-  if (event == ftxui::Event::Character(" ")) {
-    AudioPlayer.TogglePlay(m_CurrentTrack.audio);
-  }
-
-  if (event == ftxui::Event::Character('k')) {
-    AudioPlayer.setVolume(AudioPlayer.VOLUME - 5);
-    return true;
-  }
-  if (event == ftxui::Event::Character('n')) {
-    // i hate this, terrible hack to allow moving to next song while loop is on
-    if (AudioPlayer.m_Loop) {
-      m_PrevTrack = m_CurrentTrack;
-      m_CurrentTrack = m_NextTrack;
+    if (event == ftxui::Event::Character('l')) {
+      mtx.lock();
+      AudioPlayer.m_Loop = !AudioPlayer.m_Loop;
+      mtx.unlock();
+      return true;
     }
-    playNextTrack();
-    return true;
-  }
-  if (event == ftxui::Event::Character('b')) {
-    // prev
-
-    mtx.lock();
-    m_CurrentTrack = m_PrevTrack;
-    AudioPlayer.TogglePlay(m_CurrentTrack.audio);
-    mtx.unlock();
-    loadNextTrack(AudioPlayer.m_Shuffle);
-    return true;
-  }
-  if (event == ftxui::Event::Character('l')) {
-    mtx.lock();
-    AudioPlayer.m_Loop = !AudioPlayer.m_Loop;
-    mtx.unlock();
-    return true;
-  }
-  if (event == ftxui::Event::Character('s')) {
-    mtx.lock();
-    AudioPlayer.m_Shuffle = !AudioPlayer.m_Shuffle;
-    mtx.unlock();
-    return true;
-  }
-  if (event == ftxui::Event::Character('r')) {
-    // rewind
-    //
-    AudioPlayer.rewindCurrentAudio();
-    return true;
+    if (event == ftxui::Event::Character('s')) {
+      mtx.lock();
+      AudioPlayer.m_Shuffle = !AudioPlayer.m_Shuffle;
+      mtx.unlock();
+      return true;
+    }
+    if (event == ftxui::Event::Character('r')) {
+      // rewind
+      //
+      AudioPlayer.rewindCurrentAudio();
+      return true;
+    }
   }
   if (event == ftxui::Event::Character('1')) {
     m_TrackSelector = TrackSelection::ARTIST;
@@ -311,7 +316,6 @@ void Sonic::SonicUI::Load_Libraries(std::filesystem::path new_path) {
       }
     }
   }
-  UpdateAllSelection();
   std::ofstream outfile("tmpLibrary.txt");
   if (!outfile.is_open())
     exit(1);
@@ -406,6 +410,10 @@ void Sonic::SonicUI::UpdateLeftPanelView(void) {
 
     LeftPanel->Add(entry);
   }
+  if (LeftPanelSelection.size() == 0) {
+    LeftPanel->Add(ftxui::MenuEntry("No " + getSelectionHeader() + " Here :(",
+                                    LeftPanelEntryOption));
+  }
 }
 
 void Sonic::SonicUI::UpdateMainWindowView(void) {
@@ -420,6 +428,11 @@ void Sonic::SonicUI::UpdateMainWindowView(void) {
           ftxui::text("  ") | ftxui::color(hexToRGB("#009f98")), e);
     });
     MainWindow->Add(entry);
+  }
+  if (AudioQueue.size() == 0) {
+    MainWindow->Add(ftxui::MenuEntry("No Tracks Avaliable :O Try adding your "
+                                     "music folder by using -a option ",
+                                     MainWindowEntryOption));
   }
 }
 void Sonic::SonicUI::UpdateAllSelection(void) {
