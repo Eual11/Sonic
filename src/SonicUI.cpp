@@ -118,8 +118,11 @@ bool Sonic::SonicUI::OnEvent(ftxui::Event event) {
     return true;
   }
   if (event == ftxui::Event::Character('n')) {
-    mtx.lock();
-    mtx.unlock();
+    // i hate this, terrible hack to allow moving to next song while loop is on
+    if (AudioPlayer.m_Loop) {
+      m_PrevTrack = m_CurrentTrack;
+      m_CurrentTrack = m_NextTrack;
+    }
     playNextTrack();
     return true;
   }
@@ -424,9 +427,11 @@ void Sonic::SonicUI::loadNextTrack(bool shuffle) {
 
     // bad shuffle
     nextAudioTrackIndex = m_CurrentTrack.queueindex;
-    srand(m_CurrentTrack.audio.duration);
-    while (nextAudioTrackIndex == m_CurrentTrack.queueindex)
+    while (nextAudioTrackIndex == m_CurrentTrack.queueindex) {
+      srand(static_cast<unsigned int>(std::time(nullptr) +
+                                      m_CurrentTrack.audio.duration));
       nextAudioTrackIndex = rand() % AudioQueue.size();
+    }
   }
   if (nextAudioTrackIndex >= (int)AudioQueue.size()) {
     nextAudioTrackIndex = 0;
@@ -459,7 +464,6 @@ void Sonic::SonicUI::playNextTrack(void) {
     m_PrevTrack = m_CurrentTrack;
     m_CurrentTrack = m_NextTrack;
   }
-
   AudioPlayer.TogglePlay(m_CurrentTrack.audio);
   lock.unlock();
   loadNextTrack(AudioPlayer.m_Shuffle);
