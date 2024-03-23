@@ -1,5 +1,6 @@
 #ifndef _AUDIOPLAYER_HPP
 #define _AUDIOPLAYER_HPP
+#include "../include/Utils.hpp"
 #include <SDL3/SDL_audio.h>
 #include <SDL3/SDL_mixer.h>
 #include <algorithm>
