@@ -2,6 +2,7 @@
 #define _SONICUI_HPP
 #include "../include/AudioPlayer.hpp"
 #include "../include/Utils.hpp"
+#include <stdint.h>
 #ifdef _WIN32
 #include <Windows.h>
 #endif
@@ -29,7 +30,8 @@ enum class TrackSelection {
   ARTIST,
   ALBUM,
   ALL_TRACKS,
-  PLAYLIST
+  PLAYLIST,
+  SEARCH
 };
 
 namespace Sonic {
@@ -44,14 +46,17 @@ class SonicUI : public ftxui::ComponentBase {
 
 private:
   int m_LeftPanelSelected = 0;
+  int HelpPage = 0;
   bool m_StartedPlaying = false;
   std::atomic<bool> refresh_audio_queue = true;
   std::mutex mtx;
   int m_MainWindowSelected = 0;
+  std::string SearchQuery = "";
+  uint32_t XORSHUFFLE_STATE;
   TrackInfo m_CurrentTrack;
   TrackInfo m_NextTrack;
   TrackInfo m_PrevTrack;
-
+  ftxui::Component find_tracks;
   TrackSelection m_TrackSelector;
   ftxui::Component LeftPanel =
       ftxui::Container::Vertical({}, &m_LeftPanelSelected);
@@ -59,6 +64,7 @@ private:
       ftxui::Container::Vertical({}, &m_MainWindowSelected);
 
   ftxui::Component StatusLine = ftxui::Container::Horizontal({});
+  ftxui::Component BottomUtils = ftxui::Container::Horizontal({});
   std::vector<std::string> LeftPanelSelection;
   std::vector<Sonic::SonicAudio> TracksList;
   std::vector<Sonic::SonicAudio> AudioQueue;
@@ -71,9 +77,11 @@ private:
   void UpdateAudioQueue(int index);
   void UpdateLeftPanelView(void);
   void UpdateAllSelection(void);
+  void UpdateBottomUtilsView(void);
   void UpdateMainWindowView(void);
   void loadNextTrack(bool);
   void playNextTrack(void);
+  uint32_t XorShuffle32();
 #ifdef _WIN32
   void registerHotKeys(void);
   void handleHotKeys(ftxui::Event &);

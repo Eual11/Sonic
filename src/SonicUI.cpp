@@ -7,12 +7,14 @@
 #include <fstream>
 #include <ftxui/component/component.hpp>
 #include <ftxui/component/component_base.hpp>
+#include <ftxui/component/component_options.hpp>
 #include <ftxui/component/event.hpp>
 #include <ftxui/dom/elements.hpp>
 #include <ftxui/dom/node.hpp>
 #include <ios>
 #include <iostream>
 #include <mutex>
+#include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string>
@@ -28,7 +30,7 @@ Sonic::SonicUI::SonicUI(Sonic::SonicUIOptions options) {
   ftxui::Component left_main =
       ftxui::Container::Horizontal({LeftPanel, MainWindow});
   ftxui::Component sonicui =
-      ftxui::Container::Vertical({left_main, StatusLine});
+      ftxui::Container::Vertical({left_main, StatusLine, BottomUtils});
 
   SonicAudioPlayer AudioPlayer(options.freq, options.channels, options.format);
   fs::path audio_dir(options.new_path);
@@ -43,6 +45,8 @@ Sonic::SonicUI::SonicUI(Sonic::SonicUIOptions options) {
   m_NextTrack = m_CurrentTrack;
   refresh_audio_queue = true;
   /* AudioHandlerThread.swap(swapthread); */
+
+  //
 
   Add(sonicui);
   refresh_audio_queue = true;
@@ -133,6 +137,11 @@ bool Sonic::SonicUI::OnEvent(ftxui::Event event) {
       playNextTrack();
       return true;
     }
+    if (event == ftxui::Event::Character('/')) {
+      // focusing and detaching all children of BottomUtils-
+      // failed attempt to implement searching, ftxui::inputoptions is action up
+      return true;
+    }
     if (event == ftxui::Event::Character('b')) {
       // prev
 
@@ -165,6 +174,11 @@ bool Sonic::SonicUI::OnEvent(ftxui::Event event) {
   if (event == ftxui::Event::Character('1')) {
     m_TrackSelector = TrackSelection::ARTIST;
     UpdateAllSelection();
+    return true;
+  }
+  if (event == ftxui::Event::Character('?')) {
+    HelpPage += 1;
+    UpdateBottomUtilsView();
     return true;
   }
 
@@ -276,8 +290,9 @@ ftxui::Element Sonic::SonicUI::Render() {
 
       ftxui::size(ftxui::HEIGHT, ftxui::EQUAL, 3) | ftxui::borderLight;
 
-  return ftxui::vbox({mainView | ftxui::flex, statusline_view}) | bgcolor |
-         color;
+  return ftxui::vbox(
+             {mainView | ftxui::flex, statusline_view, BottomUtils->Render()}) |
+         bgcolor | color;
 }
 
 void Sonic::SonicUI::Load_Libraries(std::filesystem::path new_path) {
@@ -353,6 +368,10 @@ void Sonic::SonicUI::UpdataLeftPanelSelection(void) {
         // unimplmented
         break;
       }
+      case TrackSelection::SEARCH: {
+        // search results
+        break;
+      }
       }
     }
   } else {
@@ -390,6 +409,10 @@ void Sonic::SonicUI::UpdateAudioQueue(int index) {
     case TrackSelection::ALL_TRACKS: {
       AudioQueue.push_back(track);
     }
+    case TrackSelection::SEARCH: {
+      // match the search string and add the new track
+      break;
+    }
     }
   }
 
@@ -397,7 +420,7 @@ void Sonic::SonicUI::UpdateAudioQueue(int index) {
   UpdateMainWindowView();
 }
 void Sonic::SonicUI::UpdateLeftPanelView(void) {
-
+  // updates how the left pannel is being rendered from the LeftPanel- selection
   std::lock_guard<std::mutex> lock(mtx);
   LeftPanel->DetachAllChildren();
 
@@ -437,8 +460,12 @@ void Sonic::SonicUI::UpdateMainWindowView(void) {
   }
 }
 void Sonic::SonicUI::UpdateAllSelection(void) {
+
+  // updates left and mainwindow selection and updates view
+  // all updates call their own respective view
   UpdataLeftPanelSelection();
   UpdateAudioQueue(m_LeftPanelSelected);
+  UpdateBottomUtilsView();
 }
 void Sonic::SonicUI::AudioQueueHandler(void) {
 
@@ -472,9 +499,12 @@ void Sonic::SonicUI::loadNextTrack(bool shuffle) {
     // bad shuffle
     nextAudioTrackIndex = m_CurrentTrack.queueindex;
     while (nextAudioTrackIndex == m_CurrentTrack.queueindex) {
-      srand(static_cast<unsigned int>(std::time(nullptr) +
-                                      m_CurrentTrack.audio.duration));
-      nextAudioTrackIndex = rand() % AudioQueue.size();
+      /* srand(static_cast<unsigned int>(std::time(nullptr) + */
+      /*                                 m_CurrentTrack.audio.duration));
+       */
+      // trying xorshift rng for the shuffle
+      XORSHUFFLE_STATE = static_cast<uint32_t>(std::time(nullptr));
+      nextAudioTrackIndex = XorShuffle32() % AudioQueue.size();
     }
   }
   if (nextAudioTrackIndex >= (int)AudioQueue.size()) {
@@ -511,4 +541,101 @@ void Sonic::SonicUI::playNextTrack(void) {
   AudioPlayer.TogglePlay(m_CurrentTrack.audio);
   lock.unlock();
   loadNextTrack(AudioPlayer.m_Shuffle);
+}
+uint32_t Sonic::SonicUI::XorShuffle32() {
+
+  uint32_t x = XORSHUFFLE_STATE;
+
+  x ^= (x << 13);
+  x ^= (x >> 17);
+  x ^= (x << 5);
+
+  return (XORSHUFFLE_STATE = x);
+}
+void Sonic::SonicUI::UpdateBottomUtilsView(void) {
+  // horrible
+  BottomUtils->DetachAllChildren();
+  ftxui::Component helpView;
+  if (HelpPage % 2 == 0) {
+
+    helpView = ftxui::Renderer([this]() {
+      auto play_binding =
+          ftxui::hbox({ftxui::text(" p ") | ftxui::bgcolor(hexToRGB("#2596be")),
+                       ftxui::text(" Play ")});
+      auto focus_binding = ftxui::hbox(
+          {ftxui::text(" [tab] ") | ftxui::bgcolor(hexToRGB("#2596be")),
+           ftxui::text(" Focus ")});
+
+      auto pause_resume_binding = ftxui::hbox(
+          {ftxui::text(" [space] ") | ftxui::bgcolor(hexToRGB("#2596be")),
+           ftxui::text(" Resume/Pause ")});
+      auto next_track_binding =
+          ftxui::hbox({ftxui::text(" n ") | ftxui::bgcolor(hexToRGB("#2596be")),
+                       ftxui::text(" Next ")});
+      auto prev_track_binding =
+          ftxui::hbox({ftxui::text(" b ") | ftxui::bgcolor(hexToRGB("#2596be")),
+                       ftxui::text(" Prev ")});
+      auto loop_track_binding =
+          ftxui::hbox({ftxui::text(" l ") | ftxui::bgcolor(hexToRGB("#2596be")),
+                       ftxui::text(" Loop ")});
+      auto shuffle_track_binding =
+          ftxui::hbox({ftxui::text(" s ") | ftxui::bgcolor(hexToRGB("#2596be")),
+                       ftxui::text(" Shuffle ")});
+      auto increase_vol_binding =
+          ftxui::hbox({ftxui::text(" i ") | ftxui::bgcolor(hexToRGB("#2596be")),
+                       ftxui::text(" +Vol ")});
+      auto decrease_vol_binding =
+          ftxui::hbox({ftxui::text(" k ") | ftxui::bgcolor(hexToRGB("#2596be")),
+                       ftxui::text(" -Vol ")});
+      auto forward_binding =
+          ftxui::hbox({ftxui::text(" [ ") | ftxui::bgcolor(hexToRGB("#2596be")),
+                       ftxui::text(" +5s ")});
+      auto backward_bindig =
+          ftxui::hbox({ftxui::text(" ] ") | ftxui::bgcolor(hexToRGB("#2596be")),
+                       ftxui::text(" -5s ")});
+      auto next_page_binding =
+          ftxui::hbox({ftxui::text(" ? ") | ftxui::bgcolor(hexToRGB("#2596be")),
+                       ftxui::text(" [More] ")});
+
+      return ftxui::hbox(
+                 {ftxui::text("   "), play_binding, pause_resume_binding,
+                  focus_binding, next_track_binding, prev_track_binding,
+                  loop_track_binding, shuffle_track_binding,
+                  increase_vol_binding, decrease_vol_binding, forward_binding,
+                  backward_bindig, next_page_binding}) |
+             ftxui::flex;
+    });
+  }
+
+  else if (HelpPage % 2 == 1) {
+    helpView = ftxui::Renderer([this]() {
+      auto rewind_track_binding =
+          ftxui::hbox({ftxui::text(" r ") | ftxui::bgcolor(hexToRGB("#2596be")),
+                       ftxui::text(" Rewind ")});
+
+      auto show_artist_binding =
+          ftxui::hbox({ftxui::text(" 1 ") | ftxui::bgcolor(hexToRGB("#2596be")),
+                       ftxui::text(" Artists ")});
+
+      auto show_all_tracks_binding =
+          ftxui::hbox({ftxui::text(" 2 ") | ftxui::bgcolor(hexToRGB("#2596be")),
+                       ftxui::text(" All Tracks ")});
+
+      auto show_albums_binding =
+          ftxui::hbox({ftxui::text(" 3 ") | ftxui::bgcolor(hexToRGB("#2596be")),
+                       ftxui::text(" Albums ")});
+      auto next_page_binding =
+          ftxui::hbox({ftxui::text(" ? ") | ftxui::bgcolor(hexToRGB("#2596be")),
+                       ftxui::text(" [More] ")});
+      auto quit_binding =
+          ftxui::hbox({ftxui::text(" q ") | ftxui::bgcolor(hexToRGB("#2596be")),
+                       ftxui::text(" Quit ")});
+
+      return ftxui::hbox({rewind_track_binding, show_artist_binding,
+                          show_all_tracks_binding, show_albums_binding,
+                          quit_binding, next_page_binding}) |
+             ftxui::flex;
+    });
+  }
+  BottomUtils->Add(helpView);
 }
