@@ -48,6 +48,7 @@ private:
   int m_LeftPanelSelected = 0;
   int HelpPage = 0;
   bool m_StartedPlaying = false;
+
   std::atomic<bool> refresh_audio_queue = true;
   std::mutex mtx;
   int m_MainWindowSelected = 0;
@@ -57,6 +58,7 @@ private:
   TrackInfo m_NextTrack;
   TrackInfo m_PrevTrack;
   ftxui::Component find_tracks;
+  ftxui::InputOption option;
   TrackSelection m_TrackSelector;
   ftxui::Component LeftPanel =
       ftxui::Container::Vertical({}, &m_LeftPanelSelected);

@@ -140,6 +140,9 @@ bool Sonic::SonicUI::OnEvent(ftxui::Event event) {
     if (event == ftxui::Event::Character('/')) {
       // focusing and detaching all children of BottomUtils-
       // failed attempt to implement searching, ftxui::inputoptions is action up
+      option.password = false;
+      find_tracks = ftxui::Input(option);
+      BottomUtils->Add(find_tracks);
       return true;
     }
     if (event == ftxui::Event::Character('b')) {
@@ -597,12 +600,12 @@ void Sonic::SonicUI::UpdateBottomUtilsView(void) {
           ftxui::hbox({ftxui::text(" ? ") | ftxui::bgcolor(hexToRGB("#2596be")),
                        ftxui::text(" [More] ")});
 
-      return ftxui::hbox(
-                 {ftxui::text("   "), play_binding, pause_resume_binding,
-                  focus_binding, next_track_binding, prev_track_binding,
-                  loop_track_binding, shuffle_track_binding,
-                  increase_vol_binding, decrease_vol_binding, forward_binding,
-                  backward_bindig, next_page_binding}) |
+      return ftxui::hbox({ftxui::text("  "), play_binding, pause_resume_binding,
+                          focus_binding, next_track_binding, prev_track_binding,
+                          loop_track_binding, shuffle_track_binding,
+                          increase_vol_binding, decrease_vol_binding,
+                          forward_binding, backward_bindig,
+                          next_page_binding}) |
              ftxui::flex;
     });
   }

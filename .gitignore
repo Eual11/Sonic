@@ -4,3 +4,4 @@ build
 CMakeLists.txts
 src/test.cpp
 assets
+.helix

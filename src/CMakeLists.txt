@@ -27,7 +27,7 @@ CPMAddPackage(
 
 )
 
-set(EXECUTABLE_NAME e)
+set(EXECUTABLE_NAME Sonic)
 include_directories($ENV{CPLUS_INCLUDE_PATH}
   ${CMAKE_SOURCE_DIR}/include
   )
@@ -51,4 +51,3 @@ target_link_libraries(${EXECUTABLE_NAME}   PRIVATE SonicUI
   PRIVATE AudioPlayer
   PRIVATE ftxui::component
   )
-# set_target_properties(C
