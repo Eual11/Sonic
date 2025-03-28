@@ -5,3 +5,4 @@ CMakeLists.txts
 src/test.cpp
 assets
 .helix
+libraries.txt
