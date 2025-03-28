@@ -21,7 +21,7 @@ currently limited to mp3 and wav format playback using SDL audio backend.
 
 ### Video Demo
 
-[![Watch the Video](./asset/thumbnail.png)](./asset/showcase_vid.mp4)
+[![Watch the demo](https://img.youtube.com/vi/O0xpmjc47Oo/0.jpg)](https://youtu.be/O0xpmjc47Oo)
 
 ## Installation
 
